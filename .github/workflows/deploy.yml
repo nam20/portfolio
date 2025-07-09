@@ -1,0 +1,54 @@
+# main 브랜치에 푸시될 때 실행될 워크플로우
+name: Deploy Next.js to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20" # 사용하는 Node.js 버전에 맞게 수정
+          cache: 'npm' # 사용하는 패키지 매니저에 맞게 수정 (npm, yarn, pnpm)
+      - name: Install dependencies
+        run: npm install # 사용하는 패키지 매니저에 맞게 수정
+      - name: Build
+        run: npm run build # package.json의 build 스크립트 실행
+        env:
+          # next.config.js에서 basePath를 동적으로 설정했다면 필요
+          NODE_ENV: production
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+      - name: Add .nojekyll file
+        run: touch ./out/.nojekyll
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
